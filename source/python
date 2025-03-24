@@ -1,0 +1,6 @@
+import evdev
+
+device = evdev.InputDevice('/dev/input/event0')
+
+for event in device.read_loop():
+

@@ -1,0 +1,20 @@
+# Light Controls
+
+A python program to use a Pikatea GB3 macropad to control Wi-Fi Lightbulbs.
+
+A Raspberry Pi Zero 2 W receives keyboard inputs from the macropad. The light-control python program interprets those key presses and sends corresponding MQTT messages. The MQTT messages are received by Home Assistent, which then sends commands to the Wi-Fi bulbs.
+
+
+
+## Requirements
+
+Xvfb (X Virtual FrameBuffer)
+ 1. Sudo apt install xvfb
+ 2. Xvfb :1 -screen 0 1024x768x24 &
+ 3. export Display=:1
+
+Xvfb is required by pynput
+
+
+
+
