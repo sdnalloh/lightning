@@ -16,8 +16,8 @@ print(unique_id)
 
 DEVICE_NAME = "Jack_Kester Pikatea Macropad"
 MQTT_BROKER = "homeassistant.local"
-MQTT_PORT = 1833
-MQTT_TIMEOUT = 60
+MQTT_PORT = "1833"
+MQTT_TIMEOUT = "60"
 MQTT_USERNAME = "mosquito"
 MQTT_PASSWORD = "mqtt-client"
 CONFIG_TOPIC = f"homeassistant/device/{unique_id}/brightness/config"
@@ -40,6 +40,8 @@ CONFIG_MESSAGE = {
   },
   "qos": 0
 }
+AVAIL_TOPIC = "lightning/brightness/available"
+AVAIL_MESSAGE = "online"
 
 def get_device():
 	print("Input device:", DEVICE_NAME)
@@ -63,13 +65,15 @@ except TypeError as err:
 def on_connect(client, userdata, flags, rc):
 	print(f"Connected with result code {rc}")
 	client.publish(CONFIG_TOPIC, json.dumps(CONFIG_MESSAGE), qos=0, retain=False)
-	print(f"Sent config message")
+	print("Sent config message")
+	client.publish(AVAIL_TOPIC, json.dumps(AVAIL_MESSAGE), qos=0, retain=False)
+	print("Sent availability message")
 
 client = paho.Client()
 client.on_connect = on_connect
 client.will_set("lightning/brightness/available", payload="offline", qos=1, retain=False)
 client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
-mqtt_up = client.connect(MQTT_BROKER, MQTT_PORT, MQTT_TIMEOUT)
+mqtt_up = client.connect("homeassistant.local", 1883, 60)
 client.loop_start()
 
 
