@@ -40,7 +40,6 @@ CONFIG_MESSAGE = {
 	"manufacturer": "sdnalloh",
 	"model": "Raspberry Pi Zero 2 W"
   },
-  "qos": 0
 }
 AVAIL_MESSAGE = "online"
 BRIGHTNESS_PLUS = {"event_type": "plus"}
@@ -69,9 +68,9 @@ except TypeError as err:
 	
 def on_connect(client, userdata, flags, rc):
 	print(f"Connected with result code {rc}")
-	client.publish(CONFIG_TOPIC, json.dumps(CONFIG_MESSAGE), qos=0, retain=False)
+	client.publish(CONFIG_TOPIC, json.dumps(CONFIG_MESSAGE), qos=1, retain=False)
 	print("Sent config message")
-	client.publish(AVAIL_TOPIC, json.dumps(AVAIL_MESSAGE), qos=0, retain=False)
+	client.publish(AVAIL_TOPIC, json.dumps(AVAIL_MESSAGE), qos=1, retain=False)
 	print("Sent availability message")
 
 client = paho.Client()
@@ -144,10 +143,10 @@ def key_pressed(key):
 def primary_action():
 	if keys.pressed[0] == "KEY_UP":
 		print("Increase Brightness")
-		client.publish(STATE_TOPIC, json.dumps(BRIGHTNESS_PLUS), qos=0, retain=False)
+		client.publish(STATE_TOPIC, json.dumps(BRIGHTNESS_PLUS), qos=1, retain=False)
 	elif keys.pressed[0] == "KEY_DOWN":
 		print("Decrease Brightness")
-		client.publish(STATE_TOPIC, json.dumps(BRIGHTNESS_MINUS), qos=0, retain=False)
+		client.publish(STATE_TOPIC, json.dumps(BRIGHTNESS_MINUS), qos=1, retain=False)
 	print(keys.pressed[0])
 	
 def secondary_action():
