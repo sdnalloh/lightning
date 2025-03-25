@@ -71,19 +71,19 @@ def connect_macropad():
 	except TypeError as err:
 		logging.critical("Exiting...\n%s", err)
 connect_macropad()
+
+def send_config():
+	client.publish(CONFIG_TOPIC, json.dumps(CONFIG_MESSAGE), qos=1, retain=False)
+	logging.info("Sent config message")
+	time.sleep(1)
+	client.publish(AVAIL_TOPIC, json.dumps(AVAIL_MESSAGE_ON), qos=1, retain=True)
+	logging.info("Sent availability message")
 	
 def on_connect(client, userdata, flags, rc, properties):
 	if rc == 0 and client.is_connected():
 		logging.info("Connected to MQTT Broker")
-		client.publish(CONFIG_TOPIC, json.dumps(CONFIG_MESSAGE), qos=1, retain=False)
-		logging.info("Sent config message")
-
+		send_config()
 		client.subscribe(HA_AVAIL_TOPIC)
-
-		# Send availability message
-		time.sleep(1)
-		client.publish(AVAIL_TOPIC, json.dumps(AVAIL_MESSAGE_ON), qos=1, retain=True)
-		logging.info("Sent availability message")
 	else:
 		logging.warning("Failed to connect, result code %d", rc)
 		#client.loop_stop()
@@ -113,8 +113,7 @@ def on_disconnect(client, userdata, rc):
 def on_message(client, userdata, msg):
 	logging.info("Received message on %s\n %s", msg.topic, msg.payload.decode())
 	if msg.payload.decode() == "online":
-		client.publish(CONFIG_TOPIC, json.dumps(CONFIG_MESSAGE), qos=1, retain=False)
-		logging.info("Sent config message")
+		send_config()
 	
 def connect_mqtt():
 	client = paho.Client(client_id=unique_id, callback_api_version=paho.CallbackAPIVersion.VERSION2)
