@@ -5,5 +5,5 @@ def getmac(interface):
 		mac = "00:00:00:00:00:00"
 	return mac[0:17]
 	
-mac = getmac(wlan01).replace(":", "")
+mac = getmac(wlan0).replace(":", "")
 print(mac[-4:])
