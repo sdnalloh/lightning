@@ -18,8 +18,8 @@ logging.info("unique_id = %s", unique_id)
 
 DEVICE_NAME = "Jack_Kester Pikatea Macropad"
 MQTT_BROKER = "homeassistant.local"
-MQTT_PORT = "1833"
-MQTT_TIMEOUT = "60"
+MQTT_PORT = 1833
+MQTT_KEEPALIVE = 120
 MQTT_USERNAME = "mosquito"
 MQTT_PASSWORD = "mqtt-client"
 HA_AVAIL_TOPIC = "homeassistant/status"
@@ -62,28 +62,31 @@ def get_device():
 	logging.warning("Input device: not found")
 
 # Connect to macropad
-device = False
-try:
-	device = evdev.InputDevice(get_device())
-	if device:
-		logging.info("Input device: connected")
-except TypeError as err:
-	logging.critical("Exiting...\n%s", err)
+def connect_macropad():
+	device = False
+	try:
+		device = evdev.InputDevice(get_device())
+		if device:
+			logging.info("Input device: connected")
+	except TypeError as err:
+		logging.critical("Exiting...\n%s", err)
+connect_macropad()
 	
 def on_connect(client, userdata, flags, rc, properties):
-	if rc == 0:
+	if rc == 0 and client.is_connected():
 		logging.info("Connected to MQTT Broker")
 		client.publish(CONFIG_TOPIC, json.dumps(CONFIG_MESSAGE), qos=1, retain=False)
 		logging.info("Sent config message")
+
 		client.subscribe(HA_AVAIL_TOPIC)
+
+		# Send availability message
+		time.sleep(1)
+		client.publish(AVAIL_TOPIC, json.dumps(AVAIL_MESSAGE_ON), qos=1, retain=True)
+		logging.info("Sent availability message")
 	else:
 		logging.warning("Failed to connect, result code %d", rc)
-
-def on_message(client, userdata, msg):
-	logging.info("Received message on %s\n %s", msg.topic, msg.payload.decode())
-	if msg.payload.decode() == "online":
-		client.publish(CONFIG_TOPIC, json.dumps(CONFIG_MESSAGE), qos=1, retain=False)
-		logging.info("Sent config message")
+		#client.loop_stop()
 
 first_reconnect_delay = 1
 reconnect_rate = 2
@@ -106,20 +109,27 @@ def on_disconnect(client, userdata, rc):
 		reconnect_delay = min(reconnect_delay, max_reconnect_delay)
 		reconnect_count += 1
 	logging.info("Reconnect failed after %d attempts. Exiting...\n", reconnect_count)
+
+def on_message(client, userdata, msg):
+	logging.info("Received message on %s\n %s", msg.topic, msg.payload.decode())
+	if msg.payload.decode() == "online":
+		client.publish(CONFIG_TOPIC, json.dumps(CONFIG_MESSAGE), qos=1, retain=False)
+		logging.info("Sent config message")
 	
+def connect_mqtt():
+	client = paho.Client(client_id=unique_id, callback_api_version=paho.CallbackAPIVersion.VERSION2)
+	client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
+	client.on_connect = on_connect
+	client.on_message = on_message
+	client.will_set(AVAIL_TOPIC, AVAIL_MESSAGE_OFF, qos=1, retain=False)
+	client.connect("homeassistant.local", 1883, 60)
+	#mqtt_up = client.connect(MQTT_BROKER, MQTT_PORT, MQTT_KEEPALIVE)
+	client.on_disconnect = on_disconnect
+	return client
+
 # Connect to MQTT broker
-client = paho.Client(client_id=unique_id, callback_api_version=paho.CallbackAPIVersion.VERSION2)
-client.on_connect = on_connect
-client.on_disconnect = on_disconnect
-client.will_set(AVAIL_TOPIC, AVAIL_MESSAGE_OFF, qos=1, retain=False)
-client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
-mqtt_up = client.connect("homeassistant.local", 1883, 60)
+client = connect_mqtt()
 client.loop_start()
-
-# Senda availability message
-client.publish(AVAIL_TOPIC, json.dumps(AVAIL_MESSAGE_ON), qos=1, retain=True)
-logging.info("Sent availability message")
-
 
 class KeyState:
 	def __init__(self, pressed, held, count, flag):
