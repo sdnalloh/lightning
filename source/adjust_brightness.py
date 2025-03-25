@@ -22,6 +22,7 @@ MQTT_PORT = "1833"
 MQTT_TIMEOUT = "60"
 MQTT_USERNAME = "mosquito"
 MQTT_PASSWORD = "mqtt-client"
+HA_AVAIL_TOPIC = "homeassistant/status"
 CONFIG_TOPIC = f"homeassistant/device/{unique_id}/brightness/config"
 AVAIL_TOPIC = "lightning/brightness/available"
 STATE_TOPIC = "lightning/brightness/state"
@@ -74,8 +75,15 @@ def on_connect(client, userdata, flags, rc, properties):
 		logging.info("Connected to MQTT Broker")
 		client.publish(CONFIG_TOPIC, json.dumps(CONFIG_MESSAGE), qos=1, retain=False)
 		logging.info("Sent config message")
+		client.subscribe(HA_AVAIL_TOPIC)
 	else:
 		logging.warning("Failed to connect, result code %d", rc)
+
+def on_message(client, userdata, msg):
+	logging.info("Received message on %s\n %s", msg.topic, msg.payload.decode())
+	if msg.payload.decode() == "online":
+		client.publish(CONFIG_TOPIC, json.dumps(CONFIG_MESSAGE), qos=1, retain=False)
+		logging.info("Sent config message")
 
 first_reconnect_delay = 1
 reconnect_rate = 2
