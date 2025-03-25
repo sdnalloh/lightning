@@ -124,7 +124,7 @@ def key_pressed(key):
 def primary_action():
     if keys.pressed[0] == "KEY_UP":
         print("Increase Brightness")
-    elif keys.press[0] == "KEY_DOWN":
+    elif keys.pressed[0] == "KEY_DOWN":
         print("Decrease Brightness")
     print(keys.pressed[0])
 	
