@@ -70,8 +70,7 @@ def on_connect(client, userdata, flags, rc):
 	print(f"Connected with result code {rc}")
 	client.publish(CONFIG_TOPIC, json.dumps(CONFIG_MESSAGE), qos=1, retain=False)
 	print("Sent config message")
-	client.publish(AVAIL_TOPIC, json.dumps(AVAIL_MESSAGE), qos=1, retain=False)
-	print("Sent availability message")
+	
 
 client = paho.Client()
 client.on_connect = on_connect
@@ -80,7 +79,8 @@ client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
 mqtt_up = client.connect("homeassistant.local", 1883, 60)
 client.loop_start()
 
-
+client.publish(AVAIL_TOPIC, json.dumps(AVAIL_MESSAGE), qos=1, retain=False)
+print("Sent availability message")
 
 
 class KeyState:
