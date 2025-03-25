@@ -1,7 +1,7 @@
 import evdev, asyncio
+import paho.mqtt.client as paho
 
-DEVICE_NAME = "Jack_Kester Pikatea Macropad"
-
+# Create unique_id
 def getmac(interface):
 	try:
 		mac = open('/sys/class/net/'+interface+'/address').readline()
@@ -13,6 +13,30 @@ mac = getmac("wlan0").replace(":", "")
 unique_id = f"lightning_{mac[-4:]}"
 print(unique_id)
 
+DEVICE_NAME = "Jack_Kester Pikatea Macropad"
+MQTT_BROKER = "homeassistant.local"
+MQTT_PORT = 1833
+CONFIG_TOPIC = f"homeassistant/device/{unique_id}/brightness/config"
+CONFIG_MESSAGE = {
+  "name": "Brightness",
+  "unique_id": "brightness",
+  "platform": "event",
+  "availability_topic": "lightning/brightness/available",
+  "state_topic": "lightning/brightness/state",
+  "event_types": [
+    "plus",
+	"minus",
+	"reset"
+  ],
+  "device": {
+    "name": "Lightning",
+	"identifiers": unique_id,
+	"manufacturer": "sdnalloh",
+	"model": "Raspberry Pi Zero 2 W"
+  },
+  "qos": 0
+}
+
 def get_device():
 	print("Input device:", DEVICE_NAME)
 	devices = [evdev.InputDevice(path) for path in evdev.list_devices()]
@@ -23,6 +47,7 @@ def get_device():
 			return device.path
 	print("Input device: not found")
 
+# Connect to macropad
 device = False
 try:
 	device = evdev.InputDevice(get_device())
@@ -30,7 +55,15 @@ try:
 		print("Input device: connected")
 except TypeError as err:
 	print("Exiting...\n")
-	
+
+client = paho.Client(unique_id)
+client.will_set("lightning/brightness/available", payload="offline", qos=1, retain=False)
+mqtt_up = client.connect(MQTT_BROKER, MQTT_PORT)
+client.loop_start()
+
+
+
+
 class KeyState:
 	def __init__(self, pressed, held, count, flag):
 		self.pressed = pressed
@@ -89,7 +122,11 @@ def key_pressed(key):
 	flag_multipress()
 
 def primary_action():
-	print(keys.pressed[0])
+    if keys.pressed[0] == "KEY_UP":
+        print("Increase Brightness")
+    elif keys.press[0] == "KEY_DOWN":
+        print("Decrease Brightness")
+    print(keys.pressed[0])
 	
 def secondary_action():
 	print(keys.held[0], "+", keys.pressed[0])
