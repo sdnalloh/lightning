@@ -1,6 +1,8 @@
 import evdev, asyncio
 import paho.mqtt.client as paho
 import json
+import time
+import logging
 
 # Create unique_id
 def getmac(interface):
@@ -12,7 +14,7 @@ def getmac(interface):
 	
 mac = getmac("wlan0").replace(":", "")
 unique_id = f"lightning_{mac[-4:]}"
-print(unique_id)
+logging.info("unique_id = %s", unique_id)
 
 DEVICE_NAME = "Jack_Kester Pikatea Macropad"
 MQTT_BROKER = "homeassistant.local"
@@ -41,46 +43,74 @@ CONFIG_MESSAGE = {
 	"model": "Raspberry Pi Zero 2 W"
   },
 }
-AVAIL_MESSAGE = "online"
+AVAIL_MESSAGE_ON = "online"
+AVAIL_MESSAGE_OFF = "offline"
 BRIGHTNESS_PLUS = {"event_type": "plus"}
 BRIGHTNESS_MINUS = {"event_type": "minus"}
 BRIGHTNESS_RESET = {"event_type": "reset"}
 
 
 def get_device():
-	print("Input device:", DEVICE_NAME)
+	logging.info("Input device: %s", DEVICE_NAME)
 	devices = [evdev.InputDevice(path) for path in evdev.list_devices()]
 	for device in devices:
 		#print(device.path, device.name)
 		if device.name == DEVICE_NAME:
-			print("Input device:", device.path)
+			logging.info("Input device: %s", device.path)
 			return device.path
-	print("Input device: not found")
+	logging.warning("Input device: not found")
 
 # Connect to macropad
 device = False
 try:
 	device = evdev.InputDevice(get_device())
 	if device:
-		print("Input device: connected")
+		logging.info("Input device: connected")
 except TypeError as err:
-	print("Exiting...\n")
+	logging.critical("Exiting...\n%s", err)
 	
-def on_connect(client, userdata, flags, rc):
-	print(f"Connected with result code {rc}")
-	client.publish(CONFIG_TOPIC, json.dumps(CONFIG_MESSAGE), qos=1, retain=False)
-	print("Sent config message")
-	
+def on_connect(client, userdata, flags, rc, properties):
+	if rc == 0:
+		logging.info("Connected to MQTT Broker")
+		client.publish(CONFIG_TOPIC, json.dumps(CONFIG_MESSAGE), qos=1, retain=False)
+		logging.info("Sent config message")
+	else:
+		logging.warning("Failed to connect, result code %d", rc)
 
-client = paho.Client()
+first_reconnect_delay = 1
+reconnect_rate = 2
+max_reconnect_count = 12
+max_reconnect_delay = 60
+
+def on_disconnect(client, userdata, rc):
+	logging.info("Disconnected with result code %d", rc)
+	reconnect_count, reconnect_delay = 0, first_reconnect_delay
+	while reconnect_count < max_reconnect_count:
+		logging.info("Reconnecting in %d seconds...", reconnect_delay)
+		time.sleep(reconnect_delay)
+		try:
+			client.reconnect()
+			logging.info("Reconnected successfully")
+			return
+		except Exception as err:
+			logging.error("%s. Reconnect failed.", err)
+		reconnect_delay *= reconnect_rate
+		reconnect_delay = min(reconnect_delay, max_reconnect_delay)
+		reconnect_count += 1
+	logging.info("Reconnect failed after %d attempts. Exiting...\n", reconnect_count)
+	
+# Connect to MQTT broker
+client = paho.Client(client_id=unique_id, callback_api_version=paho.CallbackAPIVersion.VERSION2)
 client.on_connect = on_connect
-client.will_set("lightning/brightness/available", payload="offline", qos=1, retain=False)
+client.on_disconnect = on_disconnect
+client.will_set(AVAIL_TOPIC, AVAIL_MESSAGE_OFF, qos=1, retain=False)
 client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
 mqtt_up = client.connect("homeassistant.local", 1883, 60)
 client.loop_start()
 
-client.publish(AVAIL_TOPIC, json.dumps(AVAIL_MESSAGE), qos=1, retain=False)
-print("Sent availability message")
+# Senda availability message
+client.publish(AVAIL_TOPIC, json.dumps(AVAIL_MESSAGE_ON), qos=1, retain=True)
+logging.info("Sent availability message")
 
 
 class KeyState:
@@ -141,16 +171,21 @@ def key_pressed(key):
 	flag_multipress()
 
 def primary_action():
-	if keys.pressed[0] == "KEY_UP":
-		print("Increase Brightness")
-		client.publish(STATE_TOPIC, json.dumps(BRIGHTNESS_PLUS), qos=1, retain=False)
-	elif keys.pressed[0] == "KEY_DOWN":
-		print("Decrease Brightness")
-		client.publish(STATE_TOPIC, json.dumps(BRIGHTNESS_MINUS), qos=1, retain=False)
-	print(keys.pressed[0])
+	match keys.pressed[0]:
+		case "KEY_UP":
+			logging.info("%s: Increase Brightness", keys.pressed[0])
+			client.publish(STATE_TOPIC, json.dumps(BRIGHTNESS_PLUS), qos=0, retain=False)
+		case "KEY_DOWN":
+			logging.info("%s: Decrease Brightness", keys.pressed[0])
+			client.publish(STATE_TOPIC, json.dumps(BRIGHTNESS_MINUS), qos=0, retain=False)
+		case "KEY_R":
+			logging.info("%s: Reset Brightness", keys.pressed[0])
+			client.publish(STATE_TOPIC, json.dumps(BRIGHTNESS_RESET), qos=0, retain=False)
+		case _:
+			logging.info("%s: No action taken", keys.pressed[0])
 	
 def secondary_action():
-	print(keys.held[0], "+", keys.pressed[0])
+	logging.info("%s + %s", keys.held[0], keys.pressed[0])
 
 def take_action():
 	if len(keys.held) == 1 and len(keys.pressed) == 1:
