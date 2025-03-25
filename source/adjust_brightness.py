@@ -21,12 +21,14 @@ MQTT_TIMEOUT = "60"
 MQTT_USERNAME = "mosquito"
 MQTT_PASSWORD = "mqtt-client"
 CONFIG_TOPIC = f"homeassistant/device/{unique_id}/brightness/config"
+AVAIL_TOPIC = "lightning/brightness/available"
+STATE_TOPIC = "lightning/brightness/state"
 CONFIG_MESSAGE = {
   "name": "Brightness",
   "unique_id": "brightness",
   "platform": "event",
-  "availability_topic": "lightning/brightness/available",
-  "state_topic": "lightning/brightness/state",
+  "availability_topic": AVAIL_TOPIC,
+  "state_topic": STATE_TOPIC,
   "event_types": [
     "plus",
 	"minus",
@@ -40,8 +42,11 @@ CONFIG_MESSAGE = {
   },
   "qos": 0
 }
-AVAIL_TOPIC = "lightning/brightness/available"
 AVAIL_MESSAGE = "online"
+BRIGHTNESS_PLUS = {"event_type": "plus"}
+BRIGHTNESS_MINUS = {"event_type": "minus"}
+BRIGHTNESS_RESET = {"event_type": "reset"}
+
 
 def get_device():
 	print("Input device:", DEVICE_NAME)
@@ -137,11 +142,13 @@ def key_pressed(key):
 	flag_multipress()
 
 def primary_action():
-    if keys.pressed[0] == "KEY_UP":
-        print("Increase Brightness")
-    elif keys.pressed[0] == "KEY_DOWN":
-        print("Decrease Brightness")
-    print(keys.pressed[0])
+	if keys.pressed[0] == "KEY_UP":
+		print("Increase Brightness")
+		client.publish(STATE_TOPIC, json.dumps(BRIGHTNESS_PLUS), qos=0, retain=False)
+	elif keys.pressed[0] == "KEY_DOWN":
+		print("Decrease Brightness")
+		client.publish(STATE_TOPIC, json.dumps(BRIGHTNESS_MINUS), qos=0, retain=False)
+	print(keys.pressed[0])
 	
 def secondary_action():
 	print(keys.held[0], "+", keys.pressed[0])
