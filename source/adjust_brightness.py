@@ -1,5 +1,6 @@
 import evdev, asyncio
 import paho.mqtt.client as paho
+import json
 
 # Create unique_id
 def getmac(interface):
@@ -16,6 +17,9 @@ print(unique_id)
 DEVICE_NAME = "Jack_Kester Pikatea Macropad"
 MQTT_BROKER = "homeassistant.local"
 MQTT_PORT = 1833
+MQTT_TIMEOUT = 60
+MQTT_USERNAME = "mosquito"
+MQTT_PASSWORD = "mqtt-client"
 CONFIG_TOPIC = f"homeassistant/device/{unique_id}/brightness/config"
 CONFIG_MESSAGE = {
   "name": "Brightness",
@@ -55,10 +59,17 @@ try:
 		print("Input device: connected")
 except TypeError as err:
 	print("Exiting...\n")
+	
+def on_connect(client, userdata, flags, rc):
+	print(f"Connected with result code {rc}")
+	client.publish(CONFIG_TOPIC, json.dumps(CONFIG_MESSAGE), qos=0, retain=False)
+	print(f"Sent config message")
 
-client = paho.Client(unique_id)
+client = paho.Client()
+client.on_connect = on_connect
 client.will_set("lightning/brightness/available", payload="offline", qos=1, retain=False)
-mqtt_up = client.connect(MQTT_BROKER, MQTT_PORT)
+client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
+mqtt_up = client.connect(MQTT_BROKER, MQTT_PORT, MQTT_TIMEOUT)
 client.loop_start()
 
 
