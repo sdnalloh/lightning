@@ -4,6 +4,8 @@ import json
 import time
 import logging
 
+logging.basicConfig(format='%(asctime)s - %(levelname)s: %(message)s', level=logging.DEBUG)
+
 # Create unique_id
 def getmac(interface):
 	try:
